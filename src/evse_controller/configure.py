@@ -3,7 +3,7 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any
 import sys
-from evse_controller.utils.paths import get_data_dir, ensure_data_dirs
+from evse_controller.utils.paths import get_data_dir, ensure_data_dirs, get_config_file
 
 DEFAULT_CONFIG = {
     "wallbox": {
@@ -11,6 +11,8 @@ DEFAULT_CONFIG = {
         "username": "",
         "password": "",
         "serial": "",
+        "max_charge_current": 32,    # Maximum charging current (positive)
+        "max_discharge_current": 32,  # Maximum discharging current (positive)
     },
     "shelly": {
         "primary_url": "",
@@ -80,7 +82,7 @@ def load_existing_config() -> Dict[str, Any]:
 
 def save_config(config: Dict[str, Any]):
     """Save configuration to YAML file."""
-    config_path = get_data_dir() / "config" / "config.yaml"
+    config_path = get_config_file(require_exists=False)
     try:
         with config_path.open('w') as f:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)
@@ -101,6 +103,18 @@ def interactive_config():
         default=config["wallbox"]["url"],
         validate=lambda text: len(text) > 0
     ).ask()
+    
+    config["wallbox"]["max_charge_current"] = int(questionary.text(
+        "Maximum charging current (A):",
+        default=str(config["wallbox"]["max_charge_current"]),
+        validate=lambda text: text.isdigit() and 3 <= int(text) <= 32
+    ).ask())
+    
+    config["wallbox"]["max_discharge_current"] = int(questionary.text(
+        "Maximum discharging current (A):",
+        default=str(config["wallbox"]["max_discharge_current"]),
+        validate=lambda text: text.isdigit() and 3 <= int(text) <= 32
+    ).ask())
     
     if questionary.confirm(
         "Configure Wallbox authentication (required for auto-restart)?",
